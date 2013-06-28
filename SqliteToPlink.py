@@ -77,20 +77,20 @@ class SqliteToPlink:
 		if (nid % 4) > 0: bsize = bsize + 1
 
 		# plink mapping scheme
-		# 00  Homozygote "1"/"1": 0
-    # 01  Heterozygote: 1
-    # 11  Homozygote "2"/"2": 3
-    # 10  Missing genotype: 2
+		# Homozygote "1"/"1": 3
+    # Heterozygote: 2
+    # Homozygote "2"/"2": 0
+    # Missing genotype: 1
 		# bitmasks 240 = 11110000 and 15 = 00001111 
 		def plinkMAP(x,gmaj,gmin):
 			if ((x & 240) == 0) or ((x & 15) == 0): 
-				return 2 # missing values (plink stores as 2)
-			elif (x == ( gmaj << 4 | gmaj )): 
-				return 0 # reference homozygote (plink stores as 0)
-			elif (x == ( gmin << 4 | gmin )): 
-				return 3 # non-reference homozygote (plink stores as 3)
+				return 1 # missing values (plink stores as 1)
+			elif x == ( gmaj << 4 | gmaj ): 
+				return 3 # reference homozygote (plink stores as 3)
+			elif x == ( gmin << 4 | gmin ): 
+				return 0 # non-reference homozygote (plink stores as 0)
 			else:
-				return 1 # heterzygote (plink stores as 1)
+				return 2 # heterzygote (plink stores as 2)
 
 		# open the file
 		bedfile = open(self.plinkstem + ".bed","wb")
@@ -104,20 +104,23 @@ class SqliteToPlink:
 
 		# write out in SNP dominant form
 		shift = [0,2,4,6]
-		alleles = ["G","T","A","C","I","D","0"] 	
+		alleles = ["0","G","A","T","C","I","D"]
 		for snpid in range(0,nsnps):
 			buf = bytearray(bsize)
 			# get one SNP
 			snps = self.SQLdb.execute("select genotype from snp where id = ?;",(snpid,)).fetchone()[0]
-			gmaj = alleles.index(majmin[snpid][0])+1
-			gmin = alleles.index(majmin[snpid][1])+1
+			gmaj = alleles.index(majmin[snpid][0])
+			gmin = alleles.index(majmin[snpid][1])
 			j = 0
+			idx = 0
 			for zid in ids:
-				mapped = plinkMAP( ord(snps[zid[0]]) ,gmaj,gmin)		
-				buf[j] = buf[j] | (mapped << shift[zid[0] % 4])
-				if zid[0] % 4 ==	3: 
-					j = j + 1
-			
+				mapped = plinkMAP( ord(snps[zid[0]]),gmaj,gmin)		
+				buf[j] = buf[j] | (mapped << shift[idx])
+				if idx == 3: 
+					j = j + 1 # go to the next byte
+					idx = 0
+				else: idx = idx + 1			
+
 			#write the buffer
 			bedfile.write(buf)		
 	

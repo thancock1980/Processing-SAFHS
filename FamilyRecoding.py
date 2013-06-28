@@ -127,22 +127,21 @@ class FamilyRecoding:
 		bsize = nid / 4
 		if (nid % 4) > 0: bsize = bsize + 1
 
-
 		# plink mapping scheme
-		# 00  Homozygote "1"/"1": 0
-    # 01  Heterozygote: 1
-    # 11  Homozygote "2"/"2": 3
-    # 10  Missing genotype: 2
-		# define the mapping
+		# Homozygote "1"/"1": 3
+    # Heterozygote: 2
+    # Homozygote "2"/"2": 0
+    # Missing genotype: 1
+		# bitmasks 240 = 11110000 and 15 = 00001111 
 		def plinkMAP(snp1, snp2):
 			if snp1 == 0 or snp2 == 0: 
-				return 2 # missing values (plink stores as 2)
+				return 1 # missing values (plink stores as 2)
 			elif snp1 == snp2: 
-				return 0  # both individual have the same alleles for both major and minor (store as plink homozyogous: 0)
+				return 3  # both individual have the same alleles for both major and minor (store as plink homozyogous: 0)
 			elif ((snp1 & 240) == (snp2 & 240)) or ((snp1 & 15) == (snp2 & 15)): 		
-				return 1 # one allele change between individuals (store as plink heterozygous: 1) (240 = 11110000, 15 = 00001111) 
+				return 2 # one allele change between individuals (store as plink heterozygous: 1) (240 = 11110000, 15 = 00001111) 
 			else: 
-				return 3 # complete change of both alleles(store as plink non-reference homozygous: 3)
+				return 0 # complete change of both alleles(store as plink non-reference homozygous: 3)
 		
 		# open the file
 		bedfile = open(self.plinkstem + ".bed","wb")
@@ -162,11 +161,14 @@ class FamilyRecoding:
 			# get one SNP
 			snps = self.SQLdb.execute("select genotype from snp where id = ?;",(snpid,)).fetchone()[0]
 			j = 0
+			idx = 0
 			for zid in range(0,len(self.comparisons)):
 				mapped = plinkMAP( ord(snps[self.comparisons[zid][0]]), ord(snps[self.comparisons[zid][1]]) )		
-				buf[j] = buf[j] | (mapped << shift[zid % 4])
-				if zid % 4 ==	3: 
-					j = j + 1
+				buf[j] = buf[j] | (mapped << shift[idx])
+				if idx == 3: 
+					j = j + 1 # go to the next byte
+					idx = 0
+				else: idx = idx + 1		
 			
 			#write the buffer
 			bedfile.write(buf)		

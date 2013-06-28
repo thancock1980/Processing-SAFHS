@@ -143,7 +143,7 @@ def multi_delete(list_, delindex):
 # 1 byte per SNP
 # 4 bits for the major and 4 bits for the minor allele
 # missing is 0
-def snptoint(x,majallele,minallele):	
+def snptoint(x):	
 	ret = 0	
 	if x == "": return ret                       # missing values are mapped to 0
 	elif x[0] == "G": ret = 1 << 4
@@ -162,10 +162,10 @@ def snptoint(x,majallele,minallele):
 	
 	return ret	
 
-alleles = ["G","T","A","C","I","D","0"] 		
 probeids = []
 missingprobes = []
 pedsnps = 0
+alleles = ["G","T","A","C","I","D","0"] 		
 for chromosomeid in chromosomes:
 	ztar = tarfile.open(genobasedir + chromosomeid + ".genos.gz","r:gz")
 	ztarmembers = ztar.getmembers()
@@ -199,7 +199,7 @@ for chromosomeid in chromosomes:
 		# count the major and minor allele for each SNP over all samples
 		# and remove probes that are not in the mapfile.
 		for sample in pedpart:
-			idx = indiv['ID'].index(sample[0]) # find the id of the sample
+			idx = indiv['ID'].index(sample[0]) # find the id of the sample in the databse
 			indiv["HASGENOTYPE"][idx] = True			
 			rowids.append(idx)			
 			sample.remove(sample[0]) # remove the ID column
@@ -232,7 +232,7 @@ for chromosomeid in chromosomes:
 			# pidx = row position of the id in the mapfile dictionary
 			# rowids[k] = the position of the person in the SNP bytearray.
 			for k in range(0,len(rowids)):
-				mapfile["SNPBLOB"][pidx][ rowids[k] ] = snptoint(pedpart[k][i],maxallele,minallele) 
+				mapfile["SNPBLOB"][pidx][ rowids[k] ] = snptoint(pedpart[k][i]) 
 	ztar.close()
 
 ################################################################################################
